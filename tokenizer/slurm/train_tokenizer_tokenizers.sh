@@ -12,28 +12,25 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_cst_gabriel           # <-- Change to your SLURM account
-#SBATCH --partition=lm_long                # <-- Change to your partition
+#SBATCH --partition=A40devel                # <-- Change to your partition
 #SBATCH --job-name=train-hf-tokenizer
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=96
-#SBATCH --time=7-00:00:00
-#SBATCH --mem=1900G
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=4
+#SBATCH --time=0-01:00:00
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/run_outputs/out-train-hf-tok.$SLURM_JOB_ID"
-err="$workdir/run_outputs/err-train-hf-tok.$SLURM_JOB_ID"
+out="$workdir/my_tokenizer/logs/out-train-hf-tok.$SLURM_JOB_ID"
+err="$workdir/my_tokenizer/logs/err-train-hf-tok.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -71,10 +68,10 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 #############################################
 
 python3 "$workdir/llm-foundry/tokenizer/train_tokenizer_tokenizers.py" \
-    --data_path "$workdir/path/to/data" \
+    --data_path "$workdir/data/fineweb2-de/text/000_00000_1.parquet" \
     --data_type "parquet" \
     --cache_dir "$HF_DATASETS_CACHE" \
-    --num_proc 42 \
+    --num_proc 4 \
     --batch_size 10000 \
     --text_column "text" \
     --bos_token "<|im_start|>" \
@@ -84,7 +81,7 @@ python3 "$workdir/llm-foundry/tokenizer/train_tokenizer_tokenizers.py" \
     --padding_side "right" \
     --truncation_side "right" \
     --vocab_size 49152 \
-    --output_dir "$workdir/MyTokenizer" \
+    --output_dir "$workdir/my_tokenizer" \
     --byte_fallback 1>>"$out" 2>>"$err"
 
 #############################################

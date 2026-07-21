@@ -12,15 +12,14 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_cst_gabriel           # <-- Change to your SLURM account
-#SBATCH --partition=sgpu_medium              # <-- Change to your partition
+#SBATCH --partition=A100devel              # <-- Change to your partition
 #SBATCH --job-name=synthetic-cai
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=32
-#SBATCH --time=1-00:00:00
-#SBATCH --gres=gpu:a100:4
+#SBATCH --cpus-per-task=8
+#SBATCH --time=-01:00:00
+#SBATCH --gpus=1
 #SBATCH --exclusive
 
 #############################################
@@ -41,13 +40,13 @@ err="$workdir/synth/logs/err-synthetic-cai.$SLURM_JOB_ID"
 #############################################
 
 source $workdir/.modules.sh > "$out" 2>&1
-# python3 -m venv $workdir/.venv_synth
+python3 -m venv $workdir/.venv_synth
 source $workdir/.venv_synth/bin/activate
 
 # ===== LLM Foundry Install =====
-# pip3 install --upgrade pip
+pip3 install --upgrade pip
 # git clone --depth 1 --branch main https://github.com/Polygl0t/llm-foundry.git
-# pip3 install -e "$workdir/llm-foundry/.[synth]" --no-cache-dir
+pip3 install -e "$workdir/llm-foundry/.[synth]" --no-cache-dir
 
 #############################################
 # Environment Setup
@@ -67,7 +66,7 @@ export MODEL_NAME_OR_PATH="Qwen/Qwen2.5-32B-Instruct"
 export PROMPT_COLUMN="instruction"
 export METADATA_COLUMNS="rejected_response"                        # <-- Space-separated list of additional columns from the dataset to include in the prompt (e.g. "metadata1 metadata2"). Leave empty if not needed.
 export OUTPUT_DIR="$workdir/synth/cai_outputs"
-export OUTPUT_FILE="output.jsonl"
+export OUTPUT_FILE="output_${SLURM_JOB_ID}.jsonl"
 export MAX_LENGTH=4096
 export MAX_CHUNK_SIZE=8192
 export TEMPERATURE=0.7

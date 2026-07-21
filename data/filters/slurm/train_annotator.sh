@@ -12,23 +12,22 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=sgpu_long              # <-- Change to your partition
+#SBATCH --partition=A100devel              # <-- Change to your partition
 #SBATCH --job-name=train-annotator
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=32
-#SBATCH --time=7-00:00:00
-#SBATCH --gres=gpu:a100:4
-#SBATCH --exclusive
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=0-01:00:00
+#SBATCH --gpus=1
+
+#!! we need to adjust .ddpconfig.yaml according to num_processes
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -44,8 +43,36 @@ source $workdir/.modules.sh > "$out" 2>&1
 # python3 -m venv $workdir/.venv_distributed
 source $workdir/.venv_distributed/bin/activate
 
-# ===== Upgrade PIP =====
+# # ===== Upgrade PIP =====
 # pip3 install --upgrade pip
+
+# ===== LLM Foundry Install (for Bender) =====
+# pip3 install wheel==0.45.1 packaging==25.0 --no-cache-dir
+# pip3 install \
+#     torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+#     --index-url https://download.pytorch.org/whl/cu124 --no-cache-dir
+
+# pip3 install \
+#     numpy==2.3.2 \
+#     transformers==5.6.2 \
+#     datasets==4.0.0 \
+#     sentencepiece==0.2.0 \
+#     accelerate==1.9.0 \
+#     codecarbon==3.0.6 \
+#     wandb==0.27.2 \
+#     pyyaml==6.0.2 \
+#     liger-kernel==0.8.0 \
+#     kernels==0.13.0 \
+#     --no-cache-dir
+# pip3 install \
+#     evaluate==0.4.6 \
+#     scikit-learn==1.9.0 \
+#     --no-cache-dir
+
+# # ===== ALL HAIL FLASH-ATTN! =====
+# FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip3 install \
+# https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu124torch2.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl \
+# --no-cache-dir
 
 # ===== LLM Foundry Install =====
 # git clone --depth 1 --branch main https://github.com/Polygl0t/llm-foundry.git
@@ -97,6 +124,10 @@ source $workdir/.venv_distributed/bin/activate
 # pip3 install flash-linear-attention --no-cache-dir
 # pip3 install causal-conv1d --no-build-isolation --no-cache-dir
 
+
+
+
+
 #############################################
 # Environment Setup
 #############################################
@@ -113,12 +144,12 @@ source $workdir/.venv_distributed/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"
-export HF_TOKEN="<your-token-here>"
-export WANDB_TOKEN="<your-token-here>"
+export HF_TOKEN=""
+export WANDB_TOKEN=""
 export CLEAN_CACHE="1"  # <-- Set to "1" to clean cache after job completion
 
-hf auth login --token "$HF_TOKEN"
-wandb login "$WANDB_TOKEN"
+# hf auth login --token "$HF_TOKEN"
+# wandb login "$WANDB_TOKEN"
 
 echo "# [${SLURM_JOB_ID}] Job started at: $(date)" >> "$out"
 echo "# [${SLURM_JOB_ID}] Using $SLURM_NNODES nodes" >> "$out"
@@ -135,38 +166,26 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 # - https://huggingface.co/docs/accelerate/package_reference/cli
 #############################################
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+# export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-export LAUNCHER="accelerate launch --config_file $workdir/llm-foundry/data/filters/.ddp_config.yaml/"
+export LAUNCHER="accelerate launch --config_file $workdir/llm-foundry/data/filters/.ddp_config.yaml"
 
 export PYTHON_FILE="$workdir/llm-foundry/data/filters/train_annotator.py"
 
-export ARGS="--train_dataset_dir ./data \
+export ARGS="--train_dataset_dir $workdir/my_annotator/dataset-constructed/train \
 --dataset_type jsonl \
 --shuffle_dataset \
 --cache_dir $HF_DATASETS_CACHE \
 --num_proc $SLURM_CPUS_PER_TASK \
---model_name Qwen/Qwen3-0.6B \
---checkpoint_dir ./checkpoints \
---hub_token $HF_TOKEN \
+--model_name google-bert/bert-base-german-cased \
+--checkpoint_dir $workdir/my_annotator/models/bert-ger \
 --freeze \
---test_size 10000 \
---max_length 6032 \
---eval_steps 3000 \
---save_steps 3000 \
+--test_size 4096 \
+--max_length 512 \
 --logging_steps 1 \
---learning_rate 0.00005 \
---weight_decay 0.1 \
---lr_scheduler_type cosine \
---warmup_ratio 0.1 \
---num_train_epochs 2 \
---per_device_train_batch_size 4 \
---per_device_eval_batch_size 4 \
---gradient_accumulation_steps 4 \
---gradient_checkpointing \
---bf16 \
---tf32 \
---id_label INS-Score \
+--target_column rollouts \
+--text_column seed_text \
+--id_label Edu-Score \
 "
 
 # This step is necessary because accelerate launch does not handle multiline arguments properly

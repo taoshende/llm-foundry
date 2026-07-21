@@ -12,28 +12,25 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_cst_gabriel            # <-- Change to your SLURM account
-#SBATCH --partition=lm_short                # <-- Change to your partition
+#SBATCH --partition=A40devel                # <-- Change to your partition
 #SBATCH --job-name=tok-eval
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=64
-#SBATCH --time=8:00:00
-#SBATCH --mem=500G
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=8
+#SBATCH --time=1:00:00
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/run_outputs/out-tok-eval.$SLURM_JOB_ID"
-err="$workdir/run_outputs/err-tok-eval.$SLURM_JOB_ID"
+out="$workdir/my_tokenizer/logs/out-tok-eval.$SLURM_JOB_ID"
+err="$workdir/my_tokenizer/logs/err-tok-eval.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -71,15 +68,18 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 #############################################
 
 python3 $workdir/llm-foundry/tokenizer/tokenizer_eval.py \
-    --tokenizers_to_evaluate "ibm-granite/granite-3.3-2b-base" \
-    "meta-llama/Llama-3.2-1B" \
+    --tokenizers_to_evaluate \
+    "$workdir/my_tokenizer/tokenizer/" \
+    "gpt2" \
     "Qwen/Qwen2.5-0.5B" \
-    "allenai/OLMo-2-0425-1B" \
-    "HuggingFaceTB/SmolLM3-3B-Base" \
-    --input_file "$workdir/sample.txt" \
-    --output_file "$workdir/results.json" \
+    "LSX-UniWue/ModernGBERT_1B" \
+    "LSX-UniWue/LLaMmlein_1B" \
+    "Qwen/Qwen3-8B" \
+    --input_file "$workdir/data/small-wikipedia-de/raw.txt" \
+    --output_file "$workdir/my_tokenizer/eval/results_small_wikipedia.json" \
     --cache_dir "$HF_DATASETS_CACHE" \
     --token "$HF_TOKEN" 1>>"$out" 2>>"$err"
+
 
 #############################################
 # End of Script

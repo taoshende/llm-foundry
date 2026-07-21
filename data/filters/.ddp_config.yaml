@@ -21,7 +21,7 @@ main_process_port: null             # Port for inter-process communication (null
 main_training_function: main        # Entry point function name in your training script
 num_machines: 1                     # Total number of machines/nodes in the cluster
 gpu_ids: all                        # Specify GPU IDs to use (all = use all available GPUs)
-num_processes: 4                    # Number of GPUs/processes to use (typically equals number of GPUs)
+num_processes: 1                    # Number of GPUs/processes to use (typically equals number of GPUs)
                                     # For multi-node: num_machines * GPUs_per_machine
                                     # Each process runs on one GPU with a full model replica
 

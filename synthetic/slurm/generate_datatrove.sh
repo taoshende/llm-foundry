@@ -12,23 +12,21 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=mlgpu_short            # <-- Change to your partition
+#SBATCH --partition=A100devel            # <-- Change to your partition
 #SBATCH --job-name=synthetic-gen
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=08:00:00
-#SBATCH --gres=gpu:a40:8
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=4
+#SBATCH --time=00:30:00
+#SBATCH --gpus=1
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -71,16 +69,16 @@ export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"  # <-- Path to Hugging 
 export PYTHONPYCACHEPREFIX="$HF_DATASETS_CACHE/.pycache"  # <-- Path to Python bytecode cache
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"         # <-- Path to Hugging Face Hub cache (model weights, tokenizers, etc.)
 export TRITON_CACHE_DIR="$HF_DATASETS_CACHE/triton_cache" # <-- Path to Triton cache (for vLLM)
-export CLEAN_CACHE="0"                                   # Set to "1" to clean cache after job completion
-export DP=8                                              # <-- Data parallelism across GPUs
+export CLEAN_CACHE="1"                                   # Set to "1" to clean cache after job completion
+export DP=1                                              # <-- Data parallelism across GPUs
 export TP=1                                              # <-- Tensor parallelism (for bigger models)
 export PP=1                                              # <-- Pipeline parallelism
-export MODEL_NAME_OR_PATH="Qwen/Qwen3-14B"               # <-- Change to your model name or path
-export DATASET_PATH="$workdir/data"                      # <-- Change to your dataset path (directory with JSONL or Parquet files)
+export MODEL_NAME_OR_PATH="Qwen/Qwen3-0.6B"               # <-- Change to your model name or path
+export DATASET_PATH="$workdir/data/small-wikipedia-de"                      # <-- Change to your dataset path (directory with JSONL or Parquet files)
 export TEXT_COLUMN="text"                                # <-- Change to your dataset text column name
-export OUTPUT_DIR="$workdir/output"                      # <-- Change to your desired output directory
-export SYSTEM_PROMPT_FILE="$workdir/SYSTEM.md"           # <-- Path to system prompt file
-export PROMPT_TEMPLATE_FILE="$workdir/PROMPT.md"         # <-- Path to prompt template file (must contain [[DOCUMENT]] placeholder)
+export OUTPUT_DIR="$workdir/synth/output/generate_datatrove_wikipedia-de"                      # <-- Change to your desired output directory
+export SYSTEM_PROMPT_FILE="$workdir/synth/SYSTEM.md"           # <-- Path to system prompt file
+export PROMPT_TEMPLATE_FILE="$workdir/synth/PROMPT.md"         # <-- Path to prompt template file (must contain [[DOCUMENT]] placeholder)
 export MAX_CONCURRENT_GENERATIONS=100                    # <-- Max concurrent generations across all GPUs (tune based on model size and GPU memory)
 export MAX_TOKENS=10000                                  # <-- Max output tokens per generation
 export MODEL_MAX_CONTEXT=32768                           # <-- Maximum context length for the model

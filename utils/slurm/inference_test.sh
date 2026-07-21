@@ -12,29 +12,27 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek               # <-- Change to your SLURM account
-#SBATCH --partition=mlgpu_short             # <-- Change to your partition
+#SBATCH --partition=A40devel             # <-- Change to your partition
 #SBATCH --job-name=inference-test
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=4
 #SBATCH --time=1:00:00
-#SBATCH --gres=gpu:a40:1
-#SBATCH --exclusive
+#SBATCH --gpus=1
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
-mkdir -p "$workdir/run_outputs"
+workdir="/home/s6shtaoo/CAISA"
+mkdir -p "$workdir/my_model/inference"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/run_outputs/out-inference-test.$SLURM_JOB_ID"
-err="$workdir/run_outputs/err-inference-test.$SLURM_JOB_ID"
+out="$workdir/my_model/inference/out-inference-test.$SLURM_JOB_ID"
+err="$workdir/my_model/inference/err-inference-test.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -72,9 +70,9 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 
 export CUDA_VISIBLE_DEVICES=0
 python3 $workdir/llm-foundry/utils/inference_test.py \
-    --model_path "Polygl0t/Tucano2-qwen-0.5B-Instruct" \
-    --output_file "$workdir/inference_samples.json" \
-    --samples_file "$workdir/samples.json" \
+    --model_path "$workdir/my_model/" \
+    --output_file "$workdir/my_model/inference/inference_samples.json" \
+    --samples_file "$workdir/my_model/inference/samples.json" \
     --max_new_tokens 1024 \
     --temperature 0.2 1>$out 2>$err
 

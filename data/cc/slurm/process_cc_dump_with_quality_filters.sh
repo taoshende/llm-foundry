@@ -12,22 +12,19 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=lm_long                # <-- Change to your partition
-#SBATCH --job-name=cc-2025-30
+#SBATCH --partition=A100medium                # <-- Change to your partition
+#SBATCH --job-name=cc-2026-21
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=96
-#SBATCH --time=7-00:00:00
-#SBATCH --mem=1800G
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=1
+#SBATCH --time=1-00:00:00
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -105,8 +102,8 @@ count_available_warc_paths() {
 #############################################
 # CommonCrawl Processing Variables
 #############################################
-export DUMP="CC-MAIN-2025-30"                                               # <-- Change to your desired CommonCrawl dump
-export CONFIG_FOLDER="$workdir/llm-foundry/data/.configs"                   # <-- Change to your configuration folder if needed
+export DUMP="CC-MAIN-2026-21"                                               # <-- Change to your desired CommonCrawl dump
+export CONFIG_FOLDER="$workdir/llm-foundry/data/cc/.configs"                   # <-- Change to your configuration folder if needed
 export WARC_FILES_FOLDER="$workdir/common_crawl/$DUMP/warc_files"           # <-- Change to your desired WARC files folder if needed
 export LOGS_FOLDER="$workdir/common_crawl/$DUMP/logs"                       # <-- Change to your desired logs folder if needed
 export WARC_EXTRACTION_OUTPUT="$workdir/common_crawl/$DUMP/extracted_data"  # <-- Change to your desired WARC extraction output folder if needed
@@ -117,9 +114,9 @@ export TOKENIZERS_PARALLELISM="false"                                       # <-
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK                                 # <-- Set OMP_NUM_THREADS to match the number of CPUs allocated per task
 export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"                    # <-- Set Hugging Face datasets cache to a job-specific directory to avoid conflicts between iterations and ensure proper cleanup
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"                           # <-- Set Hugging Face Hub cache to the same job-specific directory
-export WARCS_PER_CICLE=1000                                                 # <-- Set the number of WARCs to process per cycle
+export WARCS_PER_CICLE=1                                                 # <-- Set the number of WARCs to process per cycle
 export TOKENIZER_NAME_OR_PATH="Qwen/Qwen3-0.6B-Base"                        # <-- Good out-of-the-box tokenizer for many languages
-export LANGUAGES="bn pt hi"                                                 # <-- Set the languages to filter (e.g., Bengali, Portuguese, Hindi)
+export LANGUAGES="de"                                                # <-- Set the languages to filter (e.g., Bengali, Portuguese, Hindi)
 
 #############################################
 # Main Processing Loop
@@ -161,7 +158,8 @@ while true; do
     #############################################
     echo "# [${SLURM_JOB_ID}] Iteration $iteration: Starting download phase" >> "$out"
     echo "# [${SLURM_JOB_ID}] Processing DUMP: $DUMP" >> "$out"
-    bash $workdir/warc_files_download.sh $WARCS_PER_CICLE $DUMP --remove-downloaded >/dev/null 2>&1 &
+    #bash $workdir/warc_files_download.sh $WARCS_PER_CICLE $DUMP --remove-downloaded >/dev/null 2>&1 &
+    bash $workdir/warc_files_download.sh $WARCS_PER_CICLE $DUMP > "$workdir/run_outputs/process-common-crawl-download.${SLURM_JOB_ID}" 2>&1 &
     wait
 
     #############################################

@@ -12,21 +12,19 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=lm_short               # <-- Change to your partition
+#SBATCH --partition=A40devel              # <-- Change to your partition
 #SBATCH --job-name=tokenize
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=96
-#SBATCH --time=08:00:00
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=8
+#SBATCH --time=00:30:00
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -69,13 +67,12 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 #############################################
 
 python3 $workdir/llm-foundry/data/tokenization/run_tokenization.py \
-    --input_path "$workdir/data/raw" \
-    --output_dir "$workdir/data/tokenized" \
-    --tokenizer_name "Qwen/Qwen3-0.6B" \
+    --input_path "$workdir/data/fineweb2-de/text/000_cropped.parquet" \
+    --output_dir "$workdir/data/fineweb2-de/packed" \
+    --tokenizer_name "$workdir/my_tokenizer/tokenizer" \
     --cache_dir "$HF_DATASETS_CACHE" \
-    --num_proc $SLURM_CPUS_PER_TASK \
-    --return_seq_lengths \
-    --add_eos_token 1>>"$out" 2>>"$err"
+    --num_proc 8 \
+    --add_bos_token --add_eos_token 1>>"$out" 2>>"$err"
 
 #############################################
 # End of Script

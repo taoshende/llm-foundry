@@ -12,23 +12,21 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=mlgpu_long             # <-- Change to your partition
+#SBATCH --partition=A100devel             # <-- Change to your partition
 #SBATCH --job-name=run-annotator
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=1
 #SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=7-00:00:00
-#SBATCH --gres=gpu:a40:8
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=1
+#SBATCH --time=0-00:20:00
+#SBATCH --gpus=1
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -44,11 +42,11 @@ done
 #############################################
 
 source $workdir/.modules.sh
-# python3 -m venv "$workdir/.venv_amd"
-source "$workdir/.venv_amd/bin/activate"
+# python3 -m venv "$workdir/.venv_amd_torch_pinned"
+source "$workdir/.venv_amd_torch_pinned/bin/activate"
 
 # ==== For this script, you will also need PyTorch for GPU support ====
-# pip3 install torch --no-cache-dir
+# pip3 install torch==2.6.0 --no-cache-dir
 
 # ===== LLM Foundry Install =====
 # pip3 install --upgrade pip --no-cache-dir
@@ -59,18 +57,18 @@ source "$workdir/.venv_amd/bin/activate"
 # Environment Setup
 #############################################
 
-export HF_TOKEN="<your-token-here>"
+export HF_TOKEN=""
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-export MODEL_NAME="Polygl0t/portuguese-bertimbau-toxicity-classifier"
+export MODEL_NAME="$workdir/my_annotator/models/bert-ger/final"
 export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"
-export DATASET_PATH="/path/to/dataset"
-export OUTPUT_FOLDER="/path/to/output"
+export DATASET_PATH="$workdir/data/fineweb2-de/text"
+export OUTPUT_FOLDER="$workdir/data/fineweb2-de/annotated"
 export BATCH_SIZE=32
-export NUM_PROC=16
-export FLOAT_SCORE="instruct_score"
-export INT_SCORE="instruct_int_score"
-export TEXT_COLUMN="messages"
+export NUM_PROC=1
+export FLOAT_SCORE="edu_score"
+export INT_SCORE="edu_int_score"
+export TEXT_COLUMN="text"
 export MAX_LENGTH=512
 export CLEAN_CACHE="1"  # <-- Set to "1" to clean cache after job completion
 
@@ -95,11 +93,9 @@ export UCX_NET_DEVICES=mlx5_0:1
 srun -n 1 -N 1 --gpus=1 --exclusive \
 python3 $workdir/llm-foundry/data/filters/run_annotator.py \
     --model_name "$MODEL_NAME" \
-    --apply_chat_template \
     --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00000-of-00007.jsonl" \
+    --dataset_path "$DATASET_PATH/000_00000_1.parquet" \
     --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
     --batch_size $BATCH_SIZE \
     --output_folder "$OUTPUT_FOLDER" \
     --num_proc $NUM_PROC \
@@ -107,124 +103,124 @@ python3 $workdir/llm-foundry/data/filters/run_annotator.py \
     --int_score $INT_SCORE \
     --max_length $MAX_LENGTH 1>$out0 2>$err0 &
 
-export CUDA_VISIBLE_DEVICES=1
-export UCX_NET_DEVICES=mlx5_1:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00001-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out1 2>$err1 &
+# export CUDA_VISIBLE_DEVICES=1
+# export UCX_NET_DEVICES=mlx5_1:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00001-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out1 2>$err1 &
 
-export CUDA_VISIBLE_DEVICES=2
-export UCX_NET_DEVICES=mlx5_2:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00002-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out2 2>$err2 &
+# export CUDA_VISIBLE_DEVICES=2
+# export UCX_NET_DEVICES=mlx5_2:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00002-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out2 2>$err2 &
 
-export CUDA_VISIBLE_DEVICES=3
-export UCX_NET_DEVICES=mlx5_3:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00003-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out3 2>$err3 &
+# export CUDA_VISIBLE_DEVICES=3
+# export UCX_NET_DEVICES=mlx5_3:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00003-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out3 2>$err3 &
 
-export CUDA_VISIBLE_DEVICES=4
-export UCX_NET_DEVICES=mlx5_4:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00004-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out4 2>$err4 &
+# export CUDA_VISIBLE_DEVICES=4
+# export UCX_NET_DEVICES=mlx5_4:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00004-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out4 2>$err4 &
 
-export CUDA_VISIBLE_DEVICES=5
-export UCX_NET_DEVICES=mlx5_5:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00005-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out5 2>$err5 &
+# export CUDA_VISIBLE_DEVICES=5
+# export UCX_NET_DEVICES=mlx5_5:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00005-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out5 2>$err5 &
 
-export CUDA_VISIBLE_DEVICES=6
-export UCX_NET_DEVICES=mlx5_6:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00006-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out6 2>$err6 &
+# export CUDA_VISIBLE_DEVICES=6
+# export UCX_NET_DEVICES=mlx5_6:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00006-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out6 2>$err6 &
 
-export CUDA_VISIBLE_DEVICES=7
-export UCX_NET_DEVICES=mlx5_7:1
-srun -n 1 -N 1 --gpus=1 --exclusive \
-python3 $workdir/llm-foundry/data/filters/run_annotator.py \
-    --model_name "$MODEL_NAME" \
-    --apply_chat_template \
-    --text_column "$TEXT_COLUMN" \
-    --dataset_path "$DATASET_PATH/train-00007-of-00007.jsonl" \
-    --cache_dir "$HF_DATASETS_CACHE" \
-    --token $HF_TOKEN \
-    --batch_size $BATCH_SIZE \
-    --output_folder "$OUTPUT_FOLDER" \
-    --num_proc $NUM_PROC \
-    --float_score $FLOAT_SCORE \
-    --int_score $INT_SCORE \
-    --max_length $MAX_LENGTH 1>$out7 2>$err7 &
+# export CUDA_VISIBLE_DEVICES=7
+# export UCX_NET_DEVICES=mlx5_7:1
+# srun -n 1 -N 1 --gpus=1 --exclusive \
+# python3 $workdir/llm-foundry/data/filters/run_annotator.py \
+#     --model_name "$MODEL_NAME" \
+#     --apply_chat_template \
+#     --text_column "$TEXT_COLUMN" \
+#     --dataset_path "$DATASET_PATH/train-00007-of-00007.jsonl" \
+#     --cache_dir "$HF_DATASETS_CACHE" \
+#     --token $HF_TOKEN \
+#     --batch_size $BATCH_SIZE \
+#     --output_folder "$OUTPUT_FOLDER" \
+#     --num_proc $NUM_PROC \
+#     --float_score $FLOAT_SCORE \
+#     --int_score $INT_SCORE \
+#     --max_length $MAX_LENGTH 1>$out7 2>$err7 &
 
 wait
 
@@ -233,12 +229,12 @@ wait
 #############################################
 # Clean HF_DATASETS_CACHE folder if requested
 if [ "$CLEAN_CACHE" = "1" ]; then
-    echo "# [${SLURM_JOB_ID}] Cleaning HF_DATASETS_CACHE" >> "$out"
+    echo "# [${SLURM_JOB_ID}] Cleaning HF_DATASETS_CACHE" >> "$out0"
     if [ -d "$HF_DATASETS_CACHE" ]; then
         find "$HF_DATASETS_CACHE" -mindepth 1 -delete 2>/dev/null || true
     fi
 else
-    echo "# [${SLURM_JOB_ID}] Skipping cache cleanup (CLEAN_CACHE=$CLEAN_CACHE)" >> "$out"
+    echo "# [${SLURM_JOB_ID}] Skipping cache cleanup (CLEAN_CACHE=$CLEAN_CACHE)" >> "$out0"
 fi
 
 for i in $(seq 0 $((SLURM_NTASKS_PER_NODE - 1))); do

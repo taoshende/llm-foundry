@@ -90,8 +90,8 @@ def compute_metrics(eval_pred):
 
     logits, labels = eval_pred
     preds = (
-        np.round(logits.squeeze()).clip(0, 4).astype(int)
-    )  # Clip the predictions to the range [0, 4]
+        np.round(logits.squeeze()).clip(0, 2).astype(int)
+    )  # Clip the predictions to the range [0, 2]
     labels = np.round(labels.squeeze()).astype(int)
 
     precision = precision_metric.compute(predictions=preds, references=labels, average="macro")[
@@ -137,20 +137,27 @@ def main(args):
         num_proc=args.num_proc,
     ).load()
 
-    # Given that the scores we generated in `llm_filter.py` are in the range [1, 5],
-    # we need to convert them to the range [0, 4] for training.
+    # The output of `generate.py` is in column `"rollouts"` and is a list: `["<content>"]`,
+    # we need to extract the content from the list.
     dataset = dataset.map(
-        lambda x: {args.target_column: np.clip(int(x[args.target_column]) - 1, 0, 4)},
+        lambda x: {args.target_column: x[args.target_column][0] if (type(x[args.target_column]) is list) else x[args.target_column]},
+        num_proc=args.num_proc,
+    )
+
+    # Given that the scores we generated in `llm_filter.py` are in the range [1, 3],
+    # we need to convert them to the range [0, 2] for training.
+    dataset = dataset.map(
+        lambda x: {args.target_column: np.clip(int(x[args.target_column]) - 1, 0, 2)},
         num_proc=args.num_proc,
     )
     # Cast the target column to ClassLabel.
     dataset = dataset.cast_column(
-        args.target_column, datasets.ClassLabel(names=[str(i) for i in range(0, 5)])
+        args.target_column, datasets.ClassLabel(names=[str(i) for i in range(0, 3)])
     )
     # Split the dataset into train and test sets.
     dataset = dataset.train_test_split(
         test_size=min(
-            args.test_size, len(dataset) * 0.1
+            args.test_size, int(len(dataset) * 0.1)
         ),  # Ensure test_size doesn't exceed dataset size
         seed=args.seed,
         stratify_by_column=args.target_column,

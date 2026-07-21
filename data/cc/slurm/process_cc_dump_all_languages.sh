@@ -12,22 +12,19 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=lm_long                # <-- Change to your partition
+#SBATCH --partition=A100devel                # <-- Change to your partition
 #SBATCH --job-name=cc-lang-filter
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=96
-#SBATCH --time=7-00:00:00
-#SBATCH --mem=1900G
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=32
+#SBATCH --time=0-01:00:00
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
+workdir="/home/s6shtaoo/CAISA"
 mkdir -p "$workdir/run_outputs"
 cd "$workdir"
 ulimit -c 0
@@ -102,7 +99,7 @@ count_available_warc_paths() {
 #############################################
 # CommonCrawl Paths & Configuration
 #############################################
-export DUMP="CC-MAIN-2025-51"                                                   # <-- Change to your desired CommonCrawl dump
+export DUMP="CC-MAIN-2026-21"                                                   # <-- Change to your desired CommonCrawl dump
 export WARC_FILES_FOLDER="$workdir/common_crawl/$DUMP/warc_files"               # <-- Folder to store downloaded WARC files for this dump
 export LOGS_FOLDER="$workdir/common_crawl/$DUMP/logs"                           # <-- Folder to store logs for this dump
 export TEMP_OUTPUT_FOLDER="$workdir/common_crawl/$DUMP/language_filter_output"  # <-- Temporary folder for language filtering output before final processing
@@ -114,7 +111,7 @@ export TOKENIZERS_PARALLELISM="false"                                           
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK                                     # <-- Set OMP threads to match allocated CPUs
 export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"                        # <-- Unique cache folder for this job to avoid conflicts with other jobs
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"                               # <-- Use the same cache folder for Hugging Face Hub to avoid conflicts
-export WARCS_PER_CICLE=1000                                                     # <-- Number of WARC files to process per iteration. Adjust based on available resources and expected processing time per WARC.
+export WARCS_PER_CICLE=1                                                  # <-- Number of WARC files to process per iteration. Adjust based on available resources and expected processing time per WARC.
 
 echo "# [${SLURM_JOB_ID}] Job started at: $(date)" >> "$out"
 
