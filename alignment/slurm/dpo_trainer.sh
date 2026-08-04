@@ -41,6 +41,9 @@ source $workdir/.modules.sh > "$out" 2>&1
 # python3 -m venv $workdir/.venv_trl
 source $workdir/.venv_trl/bin/activate
 
+which python >> "$out"
+python --version >> "$out"
+
 # ===== Upgrade PIP =====
 # pip3 install --upgrade pip
 
