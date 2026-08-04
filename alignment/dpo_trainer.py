@@ -169,10 +169,7 @@ def main(args):
     training_args = trl.DPOConfig(
         dataset_num_proc=args.num_proc,
         pad_token=tokenizer.pad_token,
-        label_pad_token_id=tokenizer.pad_token_id,
         max_length=args.max_length,
-        max_prompt_length=args.max_prompt_length,
-        max_completion_length=args.max_length - args.max_prompt_length,
         truncation_mode=args.truncation_mode,
         padding_free=args.padding_free,
         precompute_ref_log_probs=args.precompute_ref_log_probs,
@@ -222,7 +219,6 @@ def main(args):
         hub_model_id=args.hub_model_id,
         push_to_hub=bool(args.hub_token is not None and args.hub_model_id is not None),
         report_to=args.report_to,
-        include_tokens_per_second=True,
         hub_private_repo=True,
         run_name=f"{args.model_name_or_path.split('/')[-1]}-jobid-{jobid}-bs-{args.per_device_train_batch_size}-acumulation-{args.gradient_accumulation_steps}-ngpu-{torch.cuda.device_count()}-epochs-{args.num_train_epochs}",
     )
@@ -318,12 +314,6 @@ if __name__ == "__main__":
         type=int,
         default=4096,
         help="Maximum sequence length for tokenization / model.",
-    )
-    parser.add_argument(
-        "--max_prompt_length",
-        type=int,
-        default=1024,
-        help="Maximum length of the prompt part of the input.",
     )
     parser.add_argument(
         "--truncation_mode",

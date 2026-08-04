@@ -75,7 +75,7 @@ trl = [
     "wheel",
     "trl",
     "vllm>=0.17.0,<=0.25.1",
-    "codecarbon==3.2.9",
+    "codecarbon==3.0.6",
     "wandb==0.27.2",
     "trackio==0.32.2",
     "liger-kernel==0.8.0",

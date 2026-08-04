@@ -16,7 +16,6 @@
 #SBATCH --job-name=inference-test
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --threads-per-core=1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=1:00:00
 #SBATCH --gpus=1
@@ -27,12 +26,12 @@
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
 workdir="/home/s6shtaoo/CAISA"
-mkdir -p "$workdir/my_model/inference"
+mkdir -p "$workdir/alignment/logs"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/my_model/inference/out-inference-test.$SLURM_JOB_ID"
-err="$workdir/my_model/inference/err-inference-test.$SLURM_JOB_ID"
+out="$workdir/alignment/logs/out-inference-test.$SLURM_JOB_ID"
+err="$workdir/alignment/logs/err-inference-test.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -46,6 +45,7 @@ source $workdir/.venv_trl/bin/activate
 # pip3 install --upgrade pip
 # git clone --depth 1 --branch main https://github.com/Polygl0t/llm-foundry.git
 # pip3 install -e "$workdir/llm-foundry/.[trl]" --no-cache-dir
+
 
 #############################################
 # Environment Setup
@@ -70,10 +70,13 @@ echo "# [${SLURM_JOB_ID}] Python executable: $(which python3) — $(python3 --ve
 
 export CUDA_VISIBLE_DEVICES=0
 python3 $workdir/llm-foundry/utils/inference_test.py \
-    --model_path "$workdir/my_model/" \
-    --output_file "$workdir/my_model/inference/inference_samples.json" \
-    --samples_file "$workdir/my_model/inference/samples.json" \
+    --model_path $workdir/alignment/base-models/qwen3-0.6-base \
+    --output_file "$workdir/alignment/dpo-qwen-base/inference/rlhf-helpful-before-sft-$SLURM_JOB_ID.json" \
+    --samples_file "$workdir/data/rlhf-helpful/prompt.parquet" \
     --max_new_tokens 1024 \
+    --mode chat \
+    --chat_template_path $workdir/alignment/dpo-qwen-base/chat_template.jinja \
+    --parquet_task_column source \
     --temperature 0.2 1>$out 2>$err
 
 #############################################

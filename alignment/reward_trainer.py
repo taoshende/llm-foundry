@@ -160,7 +160,6 @@ def main(args):
         hub_model_id=args.hub_model_id,
         push_to_hub=bool(args.hub_token is not None and args.hub_model_id is not None),
         report_to=args.report_to,
-        include_tokens_per_second=True,
         hub_private_repo=True,
         run_name=f"{args.model_name_or_path.split('/')[-1]}-jobid-{jobid}-bs-{args.per_device_train_batch_size}-acumulation-{args.gradient_accumulation_steps}-ngpu-{torch.cuda.device_count()}-epochs-{args.num_train_epochs}",
     )

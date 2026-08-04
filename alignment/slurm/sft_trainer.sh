@@ -12,29 +12,26 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=sgpu_short             # <-- Change to your partition
+#SBATCH --partition=A40devel             # <-- Change to your partition
 #SBATCH --job-name=sft
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=32
-#SBATCH --time=8:00:00
-#SBATCH --gres=gpu:a100:4
-#SBATCH --exclusive
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --time=1:00:00
+#SBATCH --gpus=1
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
-mkdir -p "$workdir/run_outputs"
+workdir="/home/s6shtaoo/CAISA"
+mkdir -p "$workdir/alignment/logs"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/run_outputs/out-sft-trainer.$SLURM_JOB_ID"
-err="$workdir/run_outputs/err-sft-trainer.$SLURM_JOB_ID"
+out="$workdir/alignment/logs/out-sft-trainer.$SLURM_JOB_ID"
+err="$workdir/alignment/logs/err-sft-trainer.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -47,56 +44,26 @@ source "$workdir/.venv_trl/bin/activate"
 # ===== Upgrade PIP =====
 # pip3 install --upgrade pip
 
-# ===== LLM Foundry Install =====
-# git clone --depth 1 --branch main https://github.com/Polygl0t/llm-foundry.git
-# pip3 install -e "$workdir/llm-foundry/.[trl]" --no-cache-dir
+# ===== LLM Foundry Install (for Bender) =====
 
-# ===== ALL HAIL FLASH-ATTN! =====
-# Option A – Use a prebuilt wheel, no nvcc or compilation needed.
-#
-#   Step 1: Find the right wheel for your environment using the search tool:
-#           https://mjunya.com/flash-attention-prebuild-wheels/
-#           Filter by: flash_attn version, Python version, PyTorch version, CUDA version.
-#           The community repo (https://github.com/mjun0812/flash-attention-prebuild-wheels)
-#           covers many more CUDAxtorch combinations than the official releases.
-#
-#   Step 2: Copy the direct-install URL and replace the one below.
-#           Wheel name format: flash_attn-<FA>+cu<CUDA>torch<torch>-cp<py>-cp<py>-linux_x86_64.whl
-#
-#   FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE  fail fast if no matching wheel is found
-#                                         instead of silently falling back to a source build
-# Example:
+# pip3 install \
+#     setuptools \
+#     liger-kernel==0.8.0 \
+#     kernels==0.13.0 \
+#     trl \
+#     vllm \
+#     codecarbon==3.0.6 \
+#     wandb==0.27.2 \
+#     --no-cache-dir
+
+# pip3 install wheel==0.45.1 packaging==25.0 --no-cache-dir
+# pip3 install \
+#     torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+#     --index-url https://download.pytorch.org/whl/cu124 --no-cache-dir
+
 # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip3 install \
-#    https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu126torch2.8-cp312-cp312-linux_x86_64.whl \
-#    --no-cache-dir
-#
-# Option B – Build from source.
-#            This takes time ... However, it can be the only option if no
-#            compatible wheel exists for your environment.
-#            The build process requires a working nvcc setup and a compatible PyTorch installation.
-#            The following environment variables and pip options can help ensure a smooth build:
-#
-#   FLASH_ATTENTION_FORCE_BUILD=TRUE  flash-attn's setup.py skips its wheel search
-#   --no-binary :flash-attn:          pip-level guard: never use a prebuilt wheel
-#   --no-build-isolation              keep the current venv active (avoids reinstalling torch)
-#   MAX_JOBS                          cap parallel C++ compilation to avoid OOM
-#   FLASH_ATTN_CUDA_ARCHS              specify your GPU architectures to speed up the build
-#
-# Example:
-# FLASH_ATTENTION_FORCE_BUILD=TRUE MAX_JOBS=4 FLASH_ATTN_CUDA_ARCHS="80;90" \
-#   pip3 install flash-attn==2.8.3 --no-binary :flash-attn: --no-build-isolation --no-cache-dir
-
-
-# ===== OPTIONAL: Specialized Attention Packages =====
-# These packages provide optimized CUDA kernels for specific attention mechanisms.
-# Uncomment only if your model uses the corresponding attention type.
-
-# Flash Linear Attention (for fast linear attention implementations)
-# Causal Conv1D (for models using causal convolutional layers instead of standard attention)
-# - Note: flash-linear-attention requires PyTorch >= 2.7.0. However, on Bender, the latest CUDA
-#         available is CUDA 12.4, which is not compatible with the release versions of PyTorch 2.7.x.
-# pip3 install flash-linear-attention --no-cache-dir
-# pip3 install causal-conv1d --no-build-isolation --no-cache-dir
+#     https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu124torch2.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl \
+#     --no-cache-dir
 
 #############################################
 # Environment Setup
@@ -114,8 +81,8 @@ source "$workdir/.venv_trl/bin/activate"
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export HF_DATASETS_CACHE="$workdir/.tmp/$SLURM_JOB_ID"
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"
-export HF_TOKEN="<your-token-here>"
-export WANDB_TOKEN="<your-token-here>"
+export HF_TOKEN=""
+export WANDB_TOKEN=""
 export WANDB_DIR="$HF_DATASETS_CACHE/wandb"
 export TRITON_CACHE_DIR="$HF_DATASETS_CACHE/triton_cache/$SLURM_JOB_ID"
 export NCCL_TIMEOUT=3600
@@ -134,11 +101,10 @@ export GPUS_PER_NODE=$SLURM_NTASKS_PER_NODE
 export NUM_PROCESSES=$SLURM_NTASKS
 export NUM_MACHINES=$SLURM_NNODES
 export head_node_ip=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
-export CHECKPOINT_DIR="./checkpoints/MyModel-DPO-$SLURM_JOB_ID"
+export CHECKPOINT_DIR="$workdir/alignment/sft-qwen-base/checkpoints/checkpoints-$SLURM_JOB_ID"
 export CLEAN_CACHE="1"  # <-- Set to "1" to clean cache after job completion
 
-hf auth login --token "$HF_TOKEN"
-wandb login "$WANDB_TOKEN"
+mkdir -p $CHECKPOINT_DIR
 
 echo "# [${SLURM_JOB_ID}] Job started on $SLURM_JOB_NODELIST at: $(date)" >> "$out"
 echo "# [${SLURM_JOB_ID}] Using $SLURM_NNODES nodes" >> "$out"
@@ -159,26 +125,15 @@ export LAUNCHER="accelerate launch --config_file $workdir/llm-foundry/alignment/
 
 export PYTHON_FILE="$workdir/llm-foundry/alignment/sft_trainer.py"
 
-export ARGS="--dataset_type jsonl \
---train_dataset_dir /data/general \
-/data/code \
-/data/function_call \
-/data/math \
-/data/retrieval_500m \
-/data/rewriting \
-/data/structured \
-/data/summarization \
-/data/system_prompts \
-/data/translation \
+export ARGS="--dataset_type parquet \
+--train_dataset_dir $workdir/data/capybara/train-00000-of-00001.parquet \
 --shuffle_dataset \
 --cache_dir $HF_DATASETS_CACHE \
---num_proc 32 \
---model_name_or_path Polygl0t/Tucano2-qwen-0.5B-Base \
---chat_template_path /assets/chat_template.jinja \
+--num_proc 8 \
+--model_name_or_path $workdir/alignment/sft-qwen-base/model \
+--chat_template_path $workdir/alignment/sft-qwen-base/chat_template.jinja \
 --checkpoint_dir $CHECKPOINT_DIR \
---hub_token $HF_TOKEN \
---save_test_set \
---max_length 4096 \
+--max_length 1024 \
 --save_steps 2000 \
 --logging_steps 1 \
 --packing \

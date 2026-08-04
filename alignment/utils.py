@@ -124,7 +124,7 @@ def split_dataset(dataset, test_size, seed, checkpoint_dir, save_test_set, maste
         'train' and 'test' keys.
     """
     if test_size is None:
-        return dataset
+        return datasets.DatasetDict({"train": dataset})
 
     dataset = dataset.train_test_split(test_size=test_size, seed=seed)
 

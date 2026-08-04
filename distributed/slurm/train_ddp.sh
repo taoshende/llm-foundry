@@ -12,15 +12,13 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --partition=A40devel              # <-- Change to your partition
+#SBATCH --partition=A40medium              # <-- Change to your partition
 #SBATCH --job-name=ddp-training
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --threads-per-core=1
+#SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --time=0-01:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --gpus=4
-#SBATCH --exclusive
 
 #############################################
 # Working Directory Setup
@@ -42,31 +40,18 @@ err="$workdir/my_model/ddp-err.$SLURM_JOB_ID"
 source $workdir/.modules.sh > "$out" 2>&1
 source $workdir/.venv_distributed/bin/activate
 
-# ===== Installation =====
-# See distributed/slurm/create_venv_marvin.sh for the installation of the venv and packages.
+# ===== Upgrade PIP =====
+# pip3 install --upgrade pip
 
-#############################################
-# Environment Setup
-#############################################
-# PyTorch NCCL environment variables:
-# - https://github.com/pytorch/pytorch/blob/main/docs/source/cuda_environment_variables.rst
-#
-# PyTorch Distributed Documentation:
-# - https://github.com/pytorch/pytorch/blob/main/docs/source/distributed.md
-#
-# NCCL Documentation:
-# - https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
-#############################################
-
-# # ===== LLM Foundry Install (for Bender) =====
 # pip3 install wheel==0.45.1 packaging==25.0 --no-cache-dir
+
 # pip3 install \
 #     torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
 #     --index-url https://download.pytorch.org/whl/cu124 --no-cache-dir
 
 # pip3 install \
 #     numpy==2.3.2 \
-#     transformers==5.6.2 \
+#     transformers==5.14.0 \
 #     datasets==4.0.0 \
 #     sentencepiece==0.2.0 \
 #     accelerate==1.9.0 \
@@ -77,11 +62,9 @@ source $workdir/.venv_distributed/bin/activate
 #     kernels==0.13.0 \
 #     --no-cache-dir
 
-# # ===== ALL HAIL FLASH-ATTN! =====
 # FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE pip3 install \
-# https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu124torch2.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl \
-# --no-cache-dir
-
+#     https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.16/flash_attn-2.8.3+cu124torch2.6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl \
+#     --no-cache-dir
 
 export SPECS_FILE="$workdir/my_model/specifications.yaml"                  # <-- Change to your specs file path
 export CUDA_VISIBLE_DEVICES=0,1,2,3

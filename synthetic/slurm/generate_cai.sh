@@ -40,13 +40,13 @@ err="$workdir/synth/logs/err-synthetic-cai.$SLURM_JOB_ID"
 #############################################
 
 source $workdir/.modules.sh > "$out" 2>&1
-python3 -m venv $workdir/.venv_synth
+# python3 -m venv $workdir/.venv_synth
 source $workdir/.venv_synth/bin/activate
 
 # ===== LLM Foundry Install =====
-pip3 install --upgrade pip
+# pip3 install --upgrade pip
 # git clone --depth 1 --branch main https://github.com/Polygl0t/llm-foundry.git
-pip3 install -e "$workdir/llm-foundry/.[synth]" --no-cache-dir
+# pip3 install -e "$workdir/llm-foundry/.[synth]" --no-cache-dir
 
 #############################################
 # Environment Setup

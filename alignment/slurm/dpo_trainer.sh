@@ -12,29 +12,26 @@
 # Learn about Marvin|Bender dual software stacks at:
 # - https://wiki.hpc.uni-bonn.de/en/dualstacks
 #############################################
-#SBATCH --account=ag_bit_flek              # <-- Change to your SLURM account
-#SBATCH --partition=sgpu_medium            # <-- Change to your partition
+#SBATCH --partition=A40short            # <-- Change to your partition
 #SBATCH --job-name=dpo
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --threads-per-core=1
-#SBATCH --cpus-per-task=32
-#SBATCH --time=1-00:00:00
-#SBATCH --gres=gpu:a100:4
-#SBATCH --exclusive
+#SBATCH --cpus-per-task=4
+#SBATCH --time=0-08:00:00
+#SBATCH --gpus=4
 
 #############################################
 # Working Directory Setup
 #############################################
 
 # Set this to your workspace root (where you have the .venv and .modules.sh files).
-workdir="/lustre/mlnvme/data/polyglot"
-mkdir -p "$workdir/run_outputs"
+workdir="/home/s6shtaoo/CAISA"
+mkdir -p "$workdir/alignment/logs"
 cd "$workdir"
 ulimit -c 0
 
-out="$workdir/run_outputs/out-dpo-trainer.$SLURM_JOB_ID"
-err="$workdir/run_outputs/err-dpo-trainer.$SLURM_JOB_ID"
+out="$workdir/alignment/logs/out-dpo-trainer.$SLURM_JOB_ID"
+err="$workdir/alignment/logs/err-dpo-trainer.$SLURM_JOB_ID"
 
 #############################################
 # Modules & Libraries Setup
@@ -114,8 +111,8 @@ source $workdir/.venv_trl/bin/activate
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export HF_DATASETS_CACHE="$workdir/.cache/$SLURM_JOB_ID"
 export HUGGINGFACE_HUB_CACHE="$HF_DATASETS_CACHE"
-export HF_TOKEN="<your-token-here>"
-export WANDB_TOKEN="<your-token-here>"
+export HF_TOKEN=""
+export WANDB_TOKEN=""
 export WANDB_DIR="$HF_DATASETS_CACHE/wandb"
 export TRITON_CACHE_DIR="$HF_DATASETS_CACHE/triton_cache/$SLURM_JOB_ID"
 export NCCL_TIMEOUT=3600
@@ -134,11 +131,11 @@ export GPUS_PER_NODE=$SLURM_NTASKS_PER_NODE
 export NUM_PROCESSES=$SLURM_NTASKS
 export NUM_MACHINES=$SLURM_NNODES
 export head_node_ip=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
-export CHECKPOINT_DIR="./checkpoints/MyModel-DPO-$SLURM_JOB_ID"
+export CHECKPOINT_DIR="$workdir/alignment/dpo-qwen-base/checkpoints"
 export CLEAN_CACHE="1"  # <-- Set to "1" to clean cache after job completion
 
-hf auth login --token "$HF_TOKEN"
-wandb login "$WANDB_TOKEN"
+# hf auth login --token "$HF_TOKEN"
+# wandb login "$WANDB_TOKEN"
 
 echo "# [${SLURM_JOB_ID}] Job started on $SLURM_JOB_NODELIST at: $(date)" >> "$out"
 echo "# [${SLURM_JOB_ID}] Using $SLURM_NNODES nodes" >> "$out"
@@ -160,17 +157,14 @@ export LAUNCHER="accelerate launch --config_file $workdir/llm-foundry/alignment/
 
 export PYTHON_FILE="$workdir/llm-foundry/alignment/dpo_trainer.py"
 
-export ARGS="--dataset_type jsonl \
---train_dataset_dir /data/harmfull-no-reasoning \
-/data/harmfull-no-reasoning \
-/data/harmless-no-reasoning \
+export ARGS="--dataset_type parquet \
+--train_dataset_dir $workdir/data/rlhf-helpful/train-00000-of-00001.parquet \
 --shuffle_dataset \
 --cache_dir $HF_DATASETS_CACHE \
 --num_proc $SLURM_CPUS_PER_TASK \
---model_name_or_path Polygl0t/Tucano2-qwen-0.5B-Instruct \
---ref_model_name_or_path Polygl0t/Tucano2-qwen-0.5B-Instruct \
+--model_name_or_path $workdir/alignment/base-models/qwen3-0.6-base \
+--ref_model_name_or_path $workdir/alignment/base-models/qwen3-0.6-base \
 --checkpoint_dir $CHECKPOINT_DIR \
---hub_token $HF_TOKEN \
 --max_length 4096 \
 --precompute_ref_log_probs \
 --padding_free \
@@ -178,7 +172,7 @@ export ARGS="--dataset_type jsonl \
 --save_steps 1000 \
 --logging_steps 1 \
 --beta 0.1 \
---chat_template_path /assets/chat_template.jinja \
+--chat_template_path $workdir/alignment/dpo-qwen-base/chat_template.jinja \
 --loss_type apo_zero \
 --learning_rate 0.000005 \
 --weight_decay 0.0 \

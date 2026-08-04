@@ -40,6 +40,8 @@ import os
 import torch
 import trl
 
+import datasets
+
 from utils import (
     get_logger,
     load_tokenizer,
@@ -191,7 +193,6 @@ def main(args):
         push_to_hub=bool(args.hub_token is not None and args.hub_model_id is not None),
         report_to=args.report_to,
         pad_to_multiple_of=args.pad_to_multiple_of,
-        include_tokens_per_second=True,  # Include tokens per second in the logs
         hub_private_repo=True,  # If you want to push to a private repo
         run_name=f"{args.model_name_or_path.split('/')[-1]}-jobid-{jobid}-bs-{args.per_device_train_batch_size}-acumulation-{args.gradient_accumulation_steps}-ngpu-{torch.cuda.device_count()}-epochs-{args.num_train_epochs}",
     )
@@ -201,7 +202,7 @@ def main(args):
         model=args.model_name_or_path,
         processing_class=tokenizer,
         args=training_args,
-        train_dataset=dataset.get("train", dataset),
+        train_dataset=dataset.get("train"),
         eval_dataset=dataset.get("test", None),
     )
 

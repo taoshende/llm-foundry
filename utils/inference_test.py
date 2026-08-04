@@ -55,6 +55,27 @@ Usage:
         --temperature 0.7 \\
         --mode completion
 
+        
+Parquet Input:
+    The script also supports .parquet files as input. For chat-mode datasets (e.g.,
+    HuggingFace datasets with a "messages" column), they are used directly. For
+    completion-mode, use --parquet_text_column to specify which column contains the
+    prompt text.
+
+    Example (chat mode, Capybara-style parquet):
+        python inference_test.py \
+            --model_path checkpoints/llama-sft/final \
+            --samples_file data/capybara/test-00000-of-00001.parquet \
+            --output_file results/evaluation.json \
+            --parquet_task_column source
+
+    Example (completion mode, text parquet):
+        python inference_test.py \
+            --model_path checkpoints/base-model \
+            --samples_file data/text.parquet \
+            --output_file results/evaluation.json \
+            --mode completion \
+            --parquet_text_column text
 Output:
     - JSON file with results
     - Markdown report
@@ -66,6 +87,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 import torch
 from transformers import (
     AutoModelForCausalLM,
@@ -74,8 +100,11 @@ from transformers import (
 )
 
 
-def load_samples(samples_file: str) -> list[dict[str, Any]]:
-    """Load samples from a JSON file."""
+def load_samples(samples_file: str, mode: str = "chat",
+                 parquet_text_column: str = "text",
+                 parquet_task_column: str | None = None,
+                 parquet_limit: int | None = None) -> list[dict[str, Any]]:
+    """Load samples from a JSON or Parquet file."""
 
     # Try relative to script directory first, then absolute path
     samples_path = Path(__file__).parent / samples_file
@@ -86,6 +115,12 @@ def load_samples(samples_file: str) -> list[dict[str, Any]]:
         raise FileNotFoundError(f"Samples file not found: {samples_file}")
 
     print(f"Loading samples from: {samples_path}")
+
+    if samples_path.suffix == ".parquet":
+        return _load_samples_parquet(
+            samples_path, mode, parquet_text_column, parquet_task_column, parquet_limit
+        )
+
     with open(samples_path, encoding="utf-8") as f:
         samples = json.load(f)
 
@@ -93,6 +128,57 @@ def load_samples(samples_file: str) -> list[dict[str, Any]]:
         raise ValueError("Samples file must contain a JSON array of sample objects.")
 
     print(f"Loaded {len(samples)} samples.")
+    return samples
+
+
+def _load_samples_parquet(
+    samples_path: Path,
+    mode: str,
+    text_column: str,
+    task_column: str | None,
+    limit: int | None,
+) -> list[dict[str, Any]]:
+    """Load samples from a Parquet file and convert to the internal sample format."""
+    if pd is None:
+        raise ImportError(
+            "pandas is required to load .parquet files. "
+            "Install it with: pip install pandas"
+        )
+
+    df = pd.read_parquet(samples_path)
+
+    if limit is not None:
+        df = df.head(limit)
+
+    # Auto-detect task column if not specified: prefer "source", then "task_type"
+    if task_column is None:
+        for candidate in ("source", "task_type"):
+            if candidate in df.columns:
+                task_column = candidate
+                break
+
+    samples: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        sample: dict[str, Any] = {}
+
+        if mode == "chat":
+            if "messages" not in row:
+                raise KeyError(
+                    "Chat mode requires a 'messages' column in the parquet file. "
+                    "Found columns: " + ", ".join(df.columns)
+                )
+            sample["messages"] = row["messages"]
+        else:
+            sample["prompt"] = str(row[text_column])
+
+        if task_column and task_column in row:
+            sample["task_type"] = str(row[task_column])
+        else:
+            sample["task_type"] = "unknown"
+
+        samples.append(sample)
+
+    print(f"Loaded {len(samples)} samples from parquet.")
     return samples
 
 
@@ -158,7 +244,13 @@ def generate_markdown_report(samples: list, output_path: str):
 
 def main(args):
     # Load samples
-    samples = load_samples(args.samples_file)
+    samples = load_samples(
+        args.samples_file,
+        mode=args.mode,
+        parquet_text_column=args.parquet_text_column,
+        parquet_task_column=args.parquet_task_column,
+        parquet_limit=args.parquet_limit,
+    )
 
     # Load model and tokenizer
     print(f"\nLoading model: {args.model_path}")
@@ -305,7 +397,7 @@ if __name__ == "__main__":
         "--samples_file",
         type=str,
         required=True,
-        help="Path to a JSON file containing test samples.",
+        help="Path to a JSON or Parquet (.parquet) file containing test samples.",
     )
     parser.add_argument(
         "--output_file",
@@ -337,6 +429,24 @@ if __name__ == "__main__":
         choices=["chat", "completion"],
         default="chat",
         help="Inference mode: 'chat' applies the chat template (default), 'completion' feeds the prompt directly to the model (for base models).",
+    )
+    parser.add_argument(
+        "--parquet_text_column",
+        type=str,
+        default="text",
+        help="Column name for prompt text in completion-mode parquet files (default: 'text').",
+    )
+    parser.add_argument(
+        "--parquet_task_column",
+        type=str,
+        default=None,
+        help="Column name for task type in parquet files. Auto-detects 'source' or 'task_type' if not set (default: None).",
+    )
+    parser.add_argument(
+        "--parquet_limit",
+        type=int,
+        default=None,
+        help="Limit the number of rows loaded from a parquet file (default: all rows).",
     )
     args = parser.parse_args()
 
