@@ -238,12 +238,12 @@ wait
 #############################################
 # Clean HF_DATASETS_CACHE folder if requested
 if [ "$CLEAN_CACHE" = "1" ]; then
-    echo "# [${SLURM_JOB_ID}] Cleaning HF_DATASETS_CACHE" >> "$out"
+    echo "# [${SLURM_JOB_ID}] Cleaning HF_DATASETS_CACHE" >> "$out0"
     if [ -d "$HF_DATASETS_CACHE" ]; then
         find "$HF_DATASETS_CACHE" -mindepth 1 -delete 2>/dev/null || true
     fi
 else
-    echo "# [${SLURM_JOB_ID}] Skipping cache cleanup (CLEAN_CACHE=$CLEAN_CACHE)" >> "$out"
+    echo "# [${SLURM_JOB_ID}] Skipping cache cleanup (CLEAN_CACHE=$CLEAN_CACHE)" >> "$out0"
 fi
 
 for i in $(seq 0 $((SLURM_NTASKS_PER_NODE - 1))); do

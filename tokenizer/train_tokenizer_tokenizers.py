@@ -93,7 +93,7 @@ def main(args):
         show_progress=True,
     )
 
-    # Define a generator dor the BPE trainer
+    # Define a generator for the BPE trainer
     def get_training_corpus(bs=args.batch_size):
         """
         Just a generator that will yield batches of text data.
